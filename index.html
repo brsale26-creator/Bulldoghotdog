@@ -229,7 +229,7 @@ const txtPago=v=>v.pago==='Mixto'?'Efectivo '+fmt(v.efectivo)+' + Yappy '+fmt(v.
 const hoyTs0=()=>{const d=new Date();d.setHours(0,0,0,0);return d.getTime()};
 const CON={Carrito:'Efectivo del carrito',Guardado:'Dinero guardado en el local',Yappy:'Yappy'};
 function datosCierre(){const f=hoy(),V=S.ventas.filter(v=>v.fecha===f&&v.ts>=desde()),G=S.gastos.filter(g=>g.fecha===f&&g.ts>=desde());
- const C=S.config.cierres||{},prev=Object.keys(C).filter(k=>k<f).sort().pop(),fondo=prev?+C[prev].fondoDeja:FONDO;
+ const C=S.config.cierres||{},prev=Object.keys(C).filter(k=>k<f).sort().pop(),fondo=FONDO; // cada día arranca con $20 en efectivo y $0 en Yappy
  const cobradoEf=suma(((S.todo&&S.todo.f)||[]).filter(x=>x.pagoTs>=Math.max(hoyTs0(),desde())&&x.pagoForma==='Efectivo'),x=>x.monto);
  const gCarrito=suma(G.filter(g=>(g.con||'Carrito')==='Carrito'),g=>g.monto),gTotal=suma(G,g=>g.monto);
  const ventasEf=enPago(V,'Efectivo'),cobradoYa=suma(((S.todo&&S.todo.f)||[]).filter(x=>x.pagoTs>=Math.max(hoyTs0(),desde())&&x.pagoForma==='Yappy'),x=>x.monto);
