@@ -123,7 +123,7 @@ const DEF={
 };
 // Punto de partida (se guarda solo la primera vez que entra Leo o Engel)
 const INICIO_MONTO=86;
-const FONDO=20; // se deja en el carrito cada noche para el cambio
+const FONDO=10; // fondo base: se queda siempre en el carrito para el cambio y NO cuenta como dinero del negocio
 const FIADOS_INICIALES=[{cliente:'Mario',monto:7.5}];
 const clone=o=>JSON.parse(JSON.stringify(o));
 const r2=n=>Math.round(n*100)/100;
@@ -190,20 +190,20 @@ function conectar(){
    api.saveConfig({...clone(DEF),inicio:{monto:INICIO_MONTO,ts:t,fecha:f}});
    FIADOS_INICIALES.forEach(x=>api.add('fiados',{id:uid(),cliente:x.cliente,monto:x.monto,ts:t,fecha:f,pagado:false,por:'Saldo inicial',uid:u}))}
   if(c&&(c.ver||1)<CONFIG_VER&&S.admin&&!S.migrado){S.migrado=true;const n={...c};['ver','productos','insumos','compras','categorias','pagos'].forEach(k=>n[k]=clone(DEF[k]));api.saveConfig(n)}
-  if(c&&!cache&&S.admin&&c.reset!=='2026-10-08'&&!S.rs){S.rs=true;resetCaja(c)}
+  if(c&&!cache&&S.admin&&c.reset!=='2026-10-14'&&!S.rs){S.rs=true;resetCaja(c)}
   if(c&&c.inicio&&S.admin&&!S.todoOn){S.todoOn=true;api.watchTodo(c.inicio.ts,t=>{S.todo=t;render()})}
   render()});
  api.watchFiados(f=>{S.fiados=f;render()});
  api.watchStock(s=>{S.stock=s||{};render()});
  verMes(S.mes);
 }
-// Borrón y cuenta nueva (08/10/26): desde este momento la caja tiene solo $30 en efectivo en el carrito (una sola vez)
+// Cuenta nueva (14/10/26): todo en $0; el fondo base de $10 queda en el carrito y no se cuenta (una sola vez)
 async function resetCaja(c){try{
  const ts=Date.now(),d=new Date(),f=hoy(),hora=pad(d.getHours())+':'+pad(d.getMinutes()),y=new Date(hoyTs0()-1),ay=y.getFullYear()+'-'+pad(y.getMonth()+1)+'-'+pad(y.getDate());
- const ci={[ay]:{fecha:ay,ts:ts-1,hora,por:YO,partida:true,contado:30,esperado:30,diferencia:0,fondoDeja:30,guardado:0}};
+ const ci={[ay]:{fecha:ay,ts:ts-1,hora,por:YO,partida:true,contado:FONDO,esperado:FONDO,diferencia:0,fondoDeja:FONDO,guardado:0}};
  if(c.cierres&&c.cierres[f])ci[f]=firebase.firestore.FieldValue.delete();
- await api.patchConfig({reset:'2026-10-08',arranque:'2026-10-07c',ajY1008:true,ajY1008b:true,ajY1008c:true,ajEf1008:true,inicio:{monto:30,yappy:0,ts,fecha:f},retiros:[],cierres:ci});
- toast('Caja en cero: $30 en efectivo');avisar('Borrón y cuenta nueva','Caja desde '+nomDia(f)+' '+hora+': $30 en efectivo en el carrito · Yappy $0 · por '+YO)
+ await api.patchConfig({reset:'2026-10-14',arranque:'2026-10-07c',ajY1008:true,ajY1008b:true,ajY1008c:true,ajEf1008:true,inicio:{monto:0,yappy:0,ts,fecha:f},retiros:[],cierres:ci});
+ toast('Caja en cero (fondo base $10 aparte)');avisar('Cuenta nueva','Caja desde '+nomDia(f)+' '+hora+': todo en $0 · fondo base $10 en el carrito (no se cuenta) · Yappy $0 · por '+YO)
 }catch(e){S.rs=false;toast('No se pudo poner la caja en cero: '+(e&&e.message||''))}}
 const desde=()=>(S.config.inicio&&S.config.inicio.ts)||0;
 function verMes(m){S.mes=m;api.watchMes(m,(v,g)=>{S.ventas=v;S.gastos=g;render()})}
@@ -306,7 +306,7 @@ function vMes(){
   const ef=I.monto+enPago(vc,'Efectivo')+suma(fp.filter(x=>x.pagoForma==='Efectivo'),x=>x.monto)-suma(Gi.filter(g=>g.con!=='Yappy'),g=>g.monto)-suma((S.config.retiros||[]).filter(r=>r.ts>=I.ts),r=>r.monto);
   const ya=(+I.yappy||0)+enPago(vc,'Yappy')+suma(fp.filter(x=>x.pagoForma==='Yappy'),x=>x.monto)-suma(Gi.filter(g=>g.con==='Yappy'),g=>g.monto);
   const RT=S.config.retiros||[],ult=RT.length?Math.max(...RT.map(r=>r.ts)):0,gu=r2(suma(Object.values(S.config.cierres||{}).filter(x=>x.ts>=I.ts&&x.ts>ult),x=>x.guardado)-suma(Gi.filter(g=>g.con==='Guardado'&&g.ts>ult),g=>g.monto));S.guard=gu;
-  saldo=`<div class="cifra gan" style="margin-top:6px"><small>Dinero total del negocio</small><b>${fmt(ef+ya)}</b><small>Efectivo ${fmt(ef)} · Yappy ${fmt(ya)} · Fiado por cobrar ${fmt(suma(S.fiados,x=>x.monto))}<br>Desde el ${nomDia(I.fecha)}, empezando con ${fmt(I.monto)} en efectivo${I.yappy?' y '+fmt(I.yappy)+' en Yappy':''}</small></div>
+  saldo=`<div class="cifra gan" style="margin-top:6px"><small>Dinero total del negocio</small><b>${fmt(ef+ya)}</b><small>Efectivo ${fmt(ef)} · Yappy ${fmt(ya)} · Fiado por cobrar ${fmt(suma(S.fiados,x=>x.monto))}<br>Desde el ${nomDia(I.fecha)}, empezando de $0 (sin contar el fondo base de ${fmt(FONDO)} del carrito)</small></div>
   <div class="cifra" style="margin-top:8px"><small>Guardado en el local${ult?' desde el último retiro':''}</small><b>${fmt(gu)}</b><small>Lo que sobra de cada cierre, menos lo que se pagó con ese dinero.</small>${gu>0?'<button class="btn plano" style="width:100%;margin-top:8px" data-act="retiro">Ya se retiró este dinero</button>':''}</div>`}
  let semana='';
  if(T){const l=new Date();l.setHours(0,0,0,0);l.setDate(l.getDate()-((l.getDay()+6)%7)+7*S.sem);const a=l.getTime(),fin=new Date(l);fin.setDate(fin.getDate()+7);const z=fin.getTime();
